@@ -50,7 +50,9 @@ class LocalAI:
     # ------------------------------------------------------------- helpers
     @property
     def configured(self):
-        return bool(self.base_url and self.api_key and self.model)
+        # The key is optional: local servers (Ollama, LM Studio, vLLM) need none.
+        # A cloud provider without a key answers 401, and safe_* fall back.
+        return bool(self.base_url and self.model)
 
     def describe(self):
         if not self.configured:

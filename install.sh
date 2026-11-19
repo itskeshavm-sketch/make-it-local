@@ -75,8 +75,8 @@ SETUP_ARGS=()
 [ "$SKIP_DEPS" -eq 1 ] && SETUP_ARGS+=(--skip-deps)
 [ "$SKIP_PROVIDER" -eq 1 ] && SETUP_ARGS+=(--skip-provider)
 [ "$NO_VENV" -eq 1 ] && SETUP_ARGS+=(--no-venv)
-# shellcheck disable=SC2086
-bash "$TARGET/setup.sh" "${SETUP_ARGS[@]}" ${PROVIDER_ARGS[@]+"${PROVIDER_ARGS[@]}"}
+# ${arr[@]+"${arr[@]}"}: empty arrays are "unbound" under `set -u` on bash 3.2 (macOS)
+bash "$TARGET/setup.sh" ${SETUP_ARGS[@]+"${SETUP_ARGS[@]}"} ${PROVIDER_ARGS[@]+"${PROVIDER_ARGS[@]}"}
 
 echo
 echo "Installed at: $TARGET"

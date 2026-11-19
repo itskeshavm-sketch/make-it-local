@@ -107,6 +107,29 @@ try:
         results.append(check("other keys preserved", after.get("BINANCE_API_KEY") == "keepme"))
         results.append(check("key updated", after.get("AI_API_KEY") == "sk-new"))
         results.append(check("comment preserved", "# comment" in open(env_path, encoding="utf-8").read()))
+
+    # 6b. interactive wizard, no --preset, Enter on the API key (local provider)
+    wizard = os.path.join(ROOT, "scripts", "setup_provider.py")
+    with tempfile.TemporaryDirectory() as tmp:
+        env_path = os.path.join(tmp, ".env")
+        answers = "\n".join([base, "", "1", "", ""]) + "\n"   # base url, empty key, model #1, effort, tokens
+        proc = subprocess.run([sys.executable, wizard, "--env-file", env_path],
+                              input=answers, capture_output=True, text=True, timeout=60)
+        out = proc.stdout + proc.stderr
+        results.append(check("wizard: empty key + no preset does not crash",
+                             proc.returncode == 0 and "Traceback" not in out, out[-400:]))
+        saved = load_env(env_path)
+        results.append(check("wizard: saves the picked model", saved.get("AI_MODEL") == "alpha-fast", str(saved)))
+        results.append(check("wizard: saves an empty key", saved.get("AI_API_KEY") == "", str(saved)))
+
+    # 6c. wizard with stdin closed (curl | bash, CI) exits cleanly
+    with tempfile.TemporaryDirectory() as tmp:
+        proc = subprocess.run([sys.executable, wizard, "--env-file", os.path.join(tmp, ".env")],
+                              input="", capture_output=True, text=True, timeout=60)
+        out = proc.stdout + proc.stderr
+        results.append(check("wizard: closed stdin -> clean exit 1",
+                             proc.returncode == 1 and "Traceback" not in out and "nothing saved" in out, out[-400:]))
+        results.append(check("wizard: closed stdin writes no .env", not os.path.exists(os.path.join(tmp, ".env"))))
 finally:
     server.shutdown()
 
