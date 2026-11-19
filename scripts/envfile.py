@@ -10,7 +10,12 @@ def load_env(path=".env"):
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
-                    data[key.strip()] = value.strip()
+                    key, value = key.strip(), value.strip()
+                    if key.startswith("export "):
+                        key = key[len("export "):].strip()
+                    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                        value = value[1:-1]  # KEY="value" / KEY='value'
+                    data[key] = value
     return data
 
 

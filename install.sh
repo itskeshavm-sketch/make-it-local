@@ -12,6 +12,7 @@ REPO="itskeshavm-sketch/make-it-local"
 ZIP="https://codeload.github.com/$REPO/zip/refs/heads/main"
 TARGET="${MAKE_IT_LOCAL_DIR:-$PWD/make-it-local}"
 
+KEEP=""
 SKIP_DEPS=0
 SKIP_PROVIDER=0
 NO_VENV=0
@@ -41,7 +42,11 @@ if [ -d "$TARGET/.git" ]; then
   say "Existing git checkout found - updating"
   if git -C "$TARGET" pull --ff-only >/dev/null 2>&1; then ok "updated"; else warn "git pull failed, continuing"; fi
 elif [ -d "$TARGET" ]; then
-  say "Folder exists but is not a git checkout - refreshing it"
+  say "Folder exists but is not a git checkout - refreshing it (keeping .env and state.json)"
+  KEEP="$(mktemp -d)"
+  for f in .env state.json; do
+    if [ -f "$TARGET/$f" ]; then cp "$TARGET/$f" "$KEEP/$f"; fi
+  done
   rm -rf "$TARGET"
   mkdir -p "$TARGET"
 else
@@ -63,6 +68,14 @@ if [ ! -d "$TARGET/.git" ]; then
     rm -rf "$TMP"
     ok "downloaded"
   fi
+fi
+
+if [ -n "$KEEP" ] && [ -d "$KEEP" ]; then
+  for f in .env state.json; do
+    if [ -f "$KEEP/$f" ]; then cp "$KEEP/$f" "$TARGET/$f"; fi
+  done
+  rm -rf "$KEEP"
+  ok "restored your .env / state.json"
 fi
 
 if [ ! -f "$TARGET/setup.sh" ]; then

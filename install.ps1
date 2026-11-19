@@ -20,6 +20,7 @@ $ErrorActionPreference = "Stop"
 
 $Repo = "itskeshavm-sketch/make-it-local"
 $Zip = "https://codeload.github.com/$Repo/zip/refs/heads/main"
+$keep = $null
 $Target = if ($Dir) { $Dir } elseif ($env:MAKE_IT_LOCAL_DIR) { $env:MAKE_IT_LOCAL_DIR } else { Join-Path (Get-Location) "make-it-local" }
 
 function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
@@ -33,7 +34,13 @@ if (Test-Path (Join-Path $Target ".git")) {
   try { git -C $Target pull --ff-only | Out-Null; Write-Ok "updated" }
   catch { Write-Warn "git pull failed, continuing with the copy on disk" }
 } elseif (Test-Path $Target) {
-  Write-Step "Folder exists but is not a git checkout - refreshing it"
+  Write-Step "Folder exists but is not a git checkout - refreshing it (keeping .env and state.json)"
+  $keep = Join-Path $env:TEMP ("mil_keep_" + [guid]::NewGuid().ToString("N"))
+  New-Item -ItemType Directory -Path $keep -Force | Out-Null
+  foreach ($f in @(".env", "state.json")) {
+    $src = Join-Path $Target $f
+    if (Test-Path $src) { Copy-Item $src (Join-Path $keep $f) -Force }
+  }
   Remove-Item $Target -Recurse -Force
   New-Item -ItemType Directory -Path $Target -Force | Out-Null
 } else {
@@ -58,6 +65,12 @@ if (-not (Test-Path (Join-Path $Target ".git"))) {
     Remove-Item $tmp -Recurse -Force
     Write-Ok "downloaded"
   }
+}
+
+if ($keep -and (Test-Path $keep)) {
+  Get-ChildItem $keep -Force | ForEach-Object { Copy-Item $_.FullName (Join-Path $Target $_.Name) -Force }
+  Remove-Item $keep -Recurse -Force
+  Write-Ok "restored your .env / state.json"
 }
 
 $setup = Join-Path $Target "setup.ps1"
