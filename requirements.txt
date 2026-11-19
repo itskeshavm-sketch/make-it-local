@@ -1,0 +1,2 @@
+# make-it-local has ZERO runtime dependencies - the toolkit is stdlib only.
+# Add your app's dependencies here; setup.ps1 / setup.sh install them when present.

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Byte-compile everything
+        run: python -m compileall -q . || true
+
+      - name: Ledger tests
+        run: python tests/test_ledger.py
+
+      - name: Local AI client tests
+        run: python tests/test_local_ai.py
+
+      - name: Provider wizard tests
+        run: python tests/test_setup_provider.py
+
+      - name: Example app end-to-end
+        run: python tests/test_example.py
+
+      - name: Shell installers parse
+        shell: bash
+        run: |
+          bash -n install.sh
+          bash -n setup.sh
+          python -c "import json;json.load(open('providers.json'));print('providers.json ok')"
+
+      - name: PowerShell installers parse
+        if: matrix.os == 'windows-latest'
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach ($f in @('install.ps1','setup.ps1')) {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$errors)
+            if ($errors -and $errors.Count) { $errors | ForEach-Object { Write-Host $_.Message }; exit 1 }
+            Write-Host "$f parses clean"
+          }

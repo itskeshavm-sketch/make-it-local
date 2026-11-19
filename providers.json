@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "note": "OpenAI-compatible endpoints. Verified = the /models endpoint responded during maintenance. Free models change often; treat them as a hint, not a promise.",
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "auth": true,
+      "signup": "https://platform.openai.com/api-keys",
+      "free_models": ["gpt-4o-mini"],
+      "notes": "The reference implementation. gpt-4o-mini is the cheap default."
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "auth": true,
+      "signup": "https://openrouter.ai/keys",
+      "free_models": [],
+      "free_suffix": ":free",
+      "notes": "One key for 200+ models. Many models have a ':free' variant; the model list shows them."
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "base_url": "https://api.groq.com/openai/v1",
+      "auth": true,
+      "signup": "https://console.groq.com/keys",
+      "free_models": [],
+      "notes": "Very fast inference, generous free tier, rate-limited. Model ids change - pick from the live list."
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "base_url": "https://api.together.xyz/v1",
+      "auth": true,
+      "signup": "https://api.together.xyz/settings/api-keys",
+      "free_models": [],
+      "notes": "Good open-weight model selection, free tier on signup."
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "base_url": "https://api.deepseek.com/v1",
+      "auth": true,
+      "signup": "https://platform.deepseek.com/api_keys",
+      "free_models": [],
+      "notes": "Very cheap, strong reasoning. deepseek-chat / deepseek-reasoner."
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "base_url": "https://api.mistral.ai/v1",
+      "auth": true,
+      "signup": "https://console.mistral.ai/api-keys",
+      "free_models": [],
+      "notes": "mistral-small-latest / magistral for reasoning."
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "base_url": "https://api.x.ai/v1",
+      "auth": true,
+      "signup": "https://console.x.ai",
+      "free_models": [],
+      "notes": "grok models."
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras",
+      "base_url": "https://api.cerebras.ai/v1",
+      "auth": true,
+      "signup": "https://cloud.cerebras.ai",
+      "free_models": [],
+      "notes": "Fast cloud inference, free tier available."
+    },
+    {
+      "id": "nvidia-nim",
+      "name": "NVIDIA NIM",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "auth": true,
+      "signup": "https://build.nvidia.com",
+      "free_models": [],
+      "notes": "Huge open-model catalogue, free rate-limited tier."
+    },
+    {
+      "id": "aihubmix",
+      "name": "AIHubMix",
+      "base_url": "https://api.aihubmix.com/v1",
+      "auth": true,
+      "verified": true,
+      "last_verified": "2026-11-16",
+      "signup": "https://aihubmix.com",
+      "free_models": ["coding-glm-5.3-flash-free", "coding-glm-5.2-free", "minimax-m3.1-flash"],
+      "notes": "Aggregator with many free tiers. Verified: 669 models listed."
+    },
+    {
+      "id": "opencode-zen",
+      "name": "OpenCode Zen",
+      "base_url": "https://opencode.ai/zen/v1",
+      "auth": true,
+      "signup": "https://opencode.ai/auth",
+      "free_models": [],
+      "notes": "OpenCode's own gateway. Reasoning effort is set with AI_REASONING_EFFORT."
+    },
+    {
+      "id": "gemini-compat",
+      "name": "Google Gemini (OpenAI-compatible)",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "auth": true,
+      "signup": "https://aistudio.google.com/app/apikey",
+      "free_models": ["gemini-2.0-flash"],
+      "notes": "Gemini's OpenAI-compatible layer. Model ids look like 'gemini-2.0-flash'."
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (local)",
+      "base_url": "http://localhost:11434/v1",
+      "auth": false,
+      "signup": "https://ollama.com/download",
+      "free_models": [],
+      "notes": "Runs on your machine. No key needed; leave AI_API_KEY empty."
+    },
+    {
+      "id": "lmstudio",
+      "name": "LM Studio (local)",
+      "base_url": "http://localhost:1234/v1",
+      "auth": false,
+      "signup": "https://lmstudio.ai",
+      "free_models": [],
+      "notes": "Local server. No key needed."
+    },
+    {
+      "id": "vllm",
+      "name": "vLLM (self-hosted)",
+      "base_url": "http://localhost:8000/v1",
+      "auth": false,
+      "signup": "",
+      "free_models": [],
+      "notes": "Point this at your own vLLM server. Change the host/port to taste."
+    }
+  ]
+}
