@@ -145,8 +145,14 @@ def fetch_models(base_url, key):
 
 
 def test_model(base_url, key, model, timeout=45):
-    payload = {"model": model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 8}
-    status, body = _request((base_url or "").rstrip("/") + "/chat/completions", key, payload, timeout=timeout)
+    url = (base_url or "").rstrip("/") + "/chat/completions"
+    payload = {"model": model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 16}
+    status, body = _request(url, key, payload, timeout=timeout)
+    if status == 400 and "max_token" in (body or "").lower():
+        # newer OpenAI models only accept max_completion_tokens
+        payload.pop("max_tokens")
+        payload["max_completion_tokens"] = 16
+        status, body = _request(url, key, payload, timeout=timeout)
     if status == 200:
         try:
             reply = json.loads(body)["choices"][0]["message"].get("content") or ""

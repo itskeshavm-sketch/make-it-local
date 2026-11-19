@@ -21,7 +21,9 @@ Run `python setup_provider.py` to configure it interactively.
 """
 import json
 import os
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +35,15 @@ def _read_env(path):
     return load_env(path)
 
 
+def _int_setting(env, name, default):
+    """.env first, then the environment, then the default - never crash on junk."""
+    raw = env.get(name) or os.getenv(name) or ""
+    try:
+        return int(str(raw).strip()) if str(raw).strip() else int(default)
+    except ValueError:
+        return int(default)
+
+
 class LocalAI:
     def __init__(self, base_url=None, api_key=None, model=None, env_file=DEFAULT_ENV,
                  max_tokens=4096, timeout=120, verbose=False):
@@ -40,8 +51,8 @@ class LocalAI:
         self.base_url = (base_url or env.get("AI_BASE_URL") or os.getenv("AI_BASE_URL") or "").rstrip("/")
         self.api_key = api_key or env.get("AI_API_KEY") or os.getenv("AI_API_KEY") or ""
         self.model = model or env.get("AI_MODEL") or os.getenv("AI_MODEL") or ""
-        self.max_tokens = int(env.get("AI_MAX_TOKENS") or max_tokens)
-        self.timeout = int(env.get("AI_TIMEOUT") or timeout)
+        self.max_tokens = _int_setting(env, "AI_MAX_TOKENS", max_tokens)
+        self.timeout = _int_setting(env, "AI_TIMEOUT", timeout)
         self.reasoning_effort = env.get("AI_REASONING_EFFORT") or os.getenv("AI_REASONING_EFFORT") or ""
         self.json_mode = str(env.get("AI_JSON_MODE") or os.getenv("AI_JSON_MODE") or "0").lower() in ("1", "true", "yes")
         self.verbose = verbose
@@ -57,8 +68,10 @@ class LocalAI:
     def describe(self):
         if not self.configured:
             return "not configured (run setup_provider.py)"
-        host = self.base_url.split("/v")[0].split("//")[-1]
-        return f"{host}/{self.model}"
+        parsed = urllib.parse.urlparse(self.base_url)
+        host = parsed.netloc or self.base_url
+        path = re.sub(r"/v\d+[a-z0-9]*$", "", parsed.path.rstrip("/"))  # drop a trailing /v1, /v1beta
+        return f"{host}{path}/{self.model}"
 
     def _post(self, path, payload):
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -103,14 +116,15 @@ class LocalAI:
                 if exc.code in (401, 403):
                     break
                 lowered = body.lower()
-                if "max_token" in lowered:
+                if "max_token" in lowered and "max_tokens" not in blocked:
                     blocked.add("max_tokens")
-                elif "response_format" in lowered or "json_object" in lowered:
+                elif ("response_format" in lowered or "json_object" in lowered) \
+                        and "response_format" not in blocked:
                     blocked.add("response_format")
-                elif "reasoning" in lowered:
+                elif "reasoning" in lowered and "reasoning_effort" not in blocked:
                     blocked.add("reasoning_effort")
                 else:
-                    break
+                    break  # nothing new to drop: resending the same payload cannot help
             except Exception as exc:
                 last_err = exc
                 break

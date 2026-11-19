@@ -42,6 +42,10 @@ class Handler(BaseHTTPRequestHandler):
         REQUESTS.append(("POST", self.path, self.headers.get("Authorization")))
         if self.path.endswith("/chat/completions"):
             payload = json.loads(raw) if raw else {}
+            if payload.get("model") == "new-openai-model" and "max_tokens" in payload:
+                self._send(400, {"error": {"message": "Unsupported parameter: 'max_tokens'. "
+                                                      "Use 'max_completion_tokens' instead."}})
+                return
             self._send(200, {"choices": [{"message": {"role": "assistant", "content": "pong"}}],
                               "model": payload.get("model", "?")})
         else:
@@ -88,6 +92,8 @@ try:
     # 4. chat test
     ok, detail = setup_provider.test_model(base, "sk-test", "alpha-fast")
     results.append(check("chat test passes", ok, detail))
+    ok, detail = setup_provider.test_model(base, "sk-test", "new-openai-model")
+    results.append(check("chat test: max_tokens rejection retried", ok, detail))
     ok, detail = setup_provider.test_model("http://127.0.0.1:1/v1", "sk-test", "alpha-fast", timeout=3)
     results.append(check("unreachable reported", ok is False and detail != "", detail))
 
@@ -107,6 +113,13 @@ try:
         results.append(check("other keys preserved", after.get("BINANCE_API_KEY") == "keepme"))
         results.append(check("key updated", after.get("AI_API_KEY") == "sk-new"))
         results.append(check("comment preserved", "# comment" in open(env_path, encoding="utf-8").read()))
+
+        with open(env_path, "w", encoding="utf-8") as fh:
+            fh.write('AI_API_KEY="sk-quoted"\nAI_MODEL=\'m1\'\nexport AI_BASE_URL=http://x/v1\n')
+        quoted = load_env(env_path)
+        results.append(check(".env: quotes stripped", quoted.get("AI_API_KEY") == "sk-quoted"
+                             and quoted.get("AI_MODEL") == "m1", str(quoted)))
+        results.append(check(".env: export prefix", quoted.get("AI_BASE_URL") == "http://x/v1", str(quoted)))
 
     # 6b. interactive wizard, no --preset, Enter on the API key (local provider)
     wizard = os.path.join(ROOT, "scripts", "setup_provider.py")

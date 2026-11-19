@@ -34,6 +34,9 @@ class Handler(BaseHTTPRequestHandler):
         REQUESTS.append(json.loads(raw) if raw else {})
         payload = json.loads(raw) if raw else {}
 
+        if "max_completion_tokens" in payload and "max_completion_tokens" in self.reject:
+            self._send(400, {"error": "unsupported parameter: max_tokens / max_completion_tokens"})
+            return
         if "max_tokens" in payload and "max_tokens" in self.reject:
             self._send(400, {"error": "unsupported parameter: max_tokens"})
             return
@@ -116,6 +119,44 @@ try:
     results.append(check("no duplicate payloads",
                          len({json.dumps(r, sort_keys=True) for r in REQUESTS}) == len(REQUESTS), str(REQUESTS)))
     Handler.reject = set()
+
+    # 6b. a provider that keeps refusing gets each payload once, never the same one twice
+    Handler.reject = {"max_tokens", "max_completion_tokens"}
+    REQUESTS.clear()
+    stubborn = LocalAI(base_url=base, api_key="sk-test", model="test-model", env_file=None)
+    try:
+        stubborn.complete("ping")
+        results.append(check("stubborn provider raises", False))
+    except Exception:
+        results.append(check("stubborn provider raises", True))
+    results.append(check("stubborn provider: no identical retries",
+                         len({json.dumps(r, sort_keys=True) for r in REQUESTS}) == len(REQUESTS), str(REQUESTS)))
+    Handler.reject = set()
+
+    # 6c. describe() keeps the host intact (hosts starting with "v" used to break)
+    for url, expected in [("http://vllm-box:8000/v1", "vllm-box:8000/m"),
+                          ("https://api.groq.com/openai/v1", "api.groq.com/openai/m"),
+                          ("https://generativelanguage.googleapis.com/v1beta/openai",
+                           "generativelanguage.googleapis.com/v1beta/openai/m")]:
+        got = LocalAI(base_url=url, model="m", env_file=None).describe()
+        results.append(check(f"describe {url}", got == expected, got))
+
+    # 6d. bad / env-only numeric settings
+    with tempfile.TemporaryDirectory() as tmp:
+        bad = os.path.join(tmp, ".env")
+        with open(bad, "w", encoding="utf-8") as fh:
+            fh.write("AI_MAX_TOKENS=lots\nAI_TIMEOUT=\n")
+        try:
+            junk = LocalAI(env_file=bad)
+            results.append(check("junk AI_MAX_TOKENS -> default", junk.max_tokens == 4096, str(junk.max_tokens)))
+        except Exception as exc:
+            results.append(check("junk AI_MAX_TOKENS -> default", False, repr(exc)))
+    os.environ["AI_MAX_TOKENS"] = "321"
+    try:
+        results.append(check("AI_MAX_TOKENS from environment",
+                             LocalAI(env_file=None).max_tokens == 321))
+    finally:
+        del os.environ["AI_MAX_TOKENS"]
 
     # 7. auth failure is not retried
     Handler.reject = set()
