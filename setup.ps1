@@ -28,27 +28,35 @@ function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "    $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "    $msg" -ForegroundColor Yellow }
 
-function Find-Python {
+function Resolve-Python {
+  # Returns the full path of a working Python 3 interpreter, or $null.
+  # Resolving to sys.executable means "py -3" and the Microsoft Store alias
+  # never have to be invoked as a multi-word command later on.
   param([string]$Preferred)
-  if ($Preferred) { return $Preferred }
-  foreach ($cmd in @("python", "py", "python3")) {
-    $found = Get-Command $cmd -ErrorAction SilentlyContinue
-    if ($found) {
-      try {
-        if ($cmd -eq "py") { & py -3 --version *> $null; if ($LASTEXITCODE -eq 0) { return "py -3" } }
-        else { & $cmd --version *> $null; if ($LASTEXITCODE -eq 0) { return $cmd } }
-      } catch { }
-    }
+  $candidates = @()
+  if ($Preferred) { $candidates += ,@($Preferred) }
+  $candidates += ,@("python"); $candidates += ,@("py", "-3"); $candidates += ,@("python3")
+  foreach ($c in $candidates) {
+    $exe = $c[0]
+    $pre = @($c | Select-Object -Skip 1)
+    if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) { continue }
+    try {
+      $out = & $exe @pre -c "import sys; assert sys.version_info[0] == 3; print(sys.executable)" 2>$null
+      if ($LASTEXITCODE -eq 0 -and $out) {
+        $path = ($out | Select-Object -Last 1).Trim()
+        if ($path -and (Test-Path $path)) { return $path }
+      }
+    } catch { }
   }
   return $null
 }
 
-$pyCmd = Find-Python -Preferred $Python
-if (-not $pyCmd) {
+$sysPython = Resolve-Python -Preferred $Python
+if (-not $sysPython) {
   Write-Host "Python 3 not found. Install it from https://www.python.org/downloads/ (tick 'Add to PATH')." -ForegroundColor Red
   exit 1
 }
-Write-Step "Python: $pyCmd"
+Write-Step "Python: $sysPython"
 
 # ------------------------------------------------------------- dependencies
 $requirements = Join-Path $PSScriptRoot "requirements.txt"
@@ -58,15 +66,15 @@ if ((Test-Path $requirements) -and -not $SkipDeps) {
   if ($lines) { $hasDeps = $true }
 }
 
-$pythonExe = "python"
+$pythonExe = $sysPython
 if ($hasDeps) {
   if ($NoVenv) {
     Write-Step "Installing dependencies into system Python"
-    & $pyCmd -m pip install -r $requirements
+    & $pythonExe -m pip install -r $requirements
   } else {
     if (-not (Test-Path ".venv")) {
       Write-Step "Creating virtualenv .venv"
-      Invoke-Expression "$pyCmd -m venv .venv"
+      & $sysPython -m venv .venv
       if ($LASTEXITCODE -ne 0) { Write-Warn "venv creation failed, using system Python"; $NoVenv = $true }
     }
     if (-not $NoVenv) { $pythonExe = Join-Path $PSScriptRoot ".venv\Scripts\python.exe" }
@@ -82,7 +90,7 @@ if ($hasDeps) {
 # ------------------------------------------------------------- provider
 if (-not $SkipProvider) {
   Write-Step "AI provider setup"
-  $providerArgs = @($pythonExe, "scripts\setup_provider.py")
+  $providerArgs = @("scripts\setup_provider.py")
   if ($Preset) { $providerArgs += @("--preset", $Preset) }
   if ($BaseUrl) { $providerArgs += @("--base-url", $BaseUrl) }
   if ($ApiKey)  { $providerArgs += @("--api-key", $ApiKey) }

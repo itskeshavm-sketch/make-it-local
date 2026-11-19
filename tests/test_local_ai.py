@@ -76,6 +76,11 @@ try:
     results.append(check("safe_complete falls back when unconfigured",
                          safe_complete(empty, "x", fallback=lambda: "offline") == "offline"))
 
+    # 2b. keyless local provider (Ollama / LM Studio / vLLM) is usable
+    keyless = LocalAI(base_url=base, api_key="", model="test-model", env_file=None)
+    results.append(check("keyless provider is configured", keyless.configured))
+    results.append(check("keyless provider completes", safe_complete(keyless, "ping", fallback=lambda: "offline") == "pong"))
+
     # 3. plain completion
     ai = LocalAI(base_url=base, api_key="sk-test", model="test-model")
     results.append(check("complete returns text", ai.complete("ping") == "pong", repr(ai.complete("ping"))))

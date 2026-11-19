@@ -36,7 +36,8 @@ done
 find_python() {
   if [ -n "$PY" ]; then echo "$PY"; return; fi
   for candidate in python3 python; do
-    if command -v "$candidate" >/dev/null 2>&1; then echo "$candidate"; return; fi
+    # actually run it: on Windows/Git Bash "python3" is often the Microsoft Store stub
+    if "$candidate" -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then echo "$candidate"; return; fi
   done
   echo ""
 }
@@ -74,8 +75,14 @@ fi
 
 if [ "$SKIP_PROVIDER" -eq 0 ]; then
   echo "==> AI provider setup"
-  # shellcheck disable=SC2086
-  "$PYTHON" scripts/setup_provider.py "${PROVIDER_ARGS[@]}"
+  # ${arr[@]+"${arr[@]}"} keeps an empty array safe under `set -u` on bash 3.2 (macOS).
+  # Under `curl | bash` stdin is the installer script itself, so the wizard would
+  # eat it as answers - read from the terminal instead when there is one.
+  if [ ! -t 0 ] && (exec </dev/tty) 2>/dev/null; then
+    "$PYTHON" scripts/setup_provider.py ${PROVIDER_ARGS[@]+"${PROVIDER_ARGS[@]}"} </dev/tty       || echo "Provider setup did not finish - rerun: $PYTHON scripts/setup_provider.py"
+  else
+    "$PYTHON" scripts/setup_provider.py ${PROVIDER_ARGS[@]+"${PROVIDER_ARGS[@]}"}       || echo "Provider setup did not finish - rerun: $PYTHON scripts/setup_provider.py"
+  fi
 fi
 
 echo ""

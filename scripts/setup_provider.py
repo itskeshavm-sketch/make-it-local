@@ -238,9 +238,10 @@ def run_interactive(env_path, providers, preset=None):
     key = secret_prompt("API key (hidden, Enter = keep current): ").strip()
     if not key:
         key = values.get("AI_API_KEY", "")
-    if not key and not curated.get("auth") is False:
-        print("No API key given. Local providers (Ollama, LM Studio) need none - press Enter to continue.")
-        key = values.get("AI_API_KEY", "")
+    keyless = bool(curated) and curated.get("auth") is False
+    if not key and not keyless:
+        print("No API key given - fine for local providers (Ollama, LM Studio, vLLM); "
+              "cloud providers will reject the call.")
 
     print(f"\nFetching model list from {base_url}/models ...")
     models, used_base, error = fetch_models(base_url, key)
@@ -297,7 +298,7 @@ def show_check(env_path, providers):
     print(f"API key  : {mask(key)}")
     print(f"Reasoning: {values.get('AI_REASONING_EFFORT') or '(not sent)'}")
     print(f"Max tokens: {values.get('AI_MAX_TOKENS', '4096')}")
-    if key:
+    if values.get("AI_BASE_URL"):  # keyless local servers can be listed too
         models, _, error = fetch_models(base, key)
         if models:
             print(f"Models   : {len(models)} available")
@@ -361,7 +362,12 @@ def main():
                 return 2
         return 0
 
-    result = run_interactive(args.env_file, providers, preset=args.preset)
+    try:
+        result = run_interactive(args.env_file, providers, preset=args.preset)
+    except (EOFError, KeyboardInterrupt):
+        print("\nNo input (stdin closed or interrupted) - nothing saved.\n"
+              "Run it again in a terminal:  python scripts/setup_provider.py", file=sys.stderr)
+        return 1
     return 0 if result else 1
 
 

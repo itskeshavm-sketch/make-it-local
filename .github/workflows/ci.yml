@@ -54,3 +54,25 @@ jobs:
             if ($errors -and $errors.Count) { $errors | ForEach-Object { Write-Host $_.Message }; exit 1 }
             Write-Host "$f parses clean"
           }
+
+      # Actually run the installers, not just parse them. /bin/bash is bash 3.2 on
+      # macOS, which is where empty arrays + `set -u` used to blow up.
+      - name: setup.sh smoke run (no tty, empty args)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          /bin/bash setup.sh </dev/null >smoke.txt 2>&1 || true
+          cat smoke.txt
+          grep -q "AI provider setup -" smoke.txt
+          grep -q "nothing saved" smoke.txt
+          if grep -q "unbound variable" smoke.txt; then exit 1; fi
+          if grep -q "Traceback" smoke.txt; then exit 1; fi
+
+      - name: setup.ps1 smoke run (wizard reached)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          $out = & powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1 -BaseUrl http://127.0.0.1:1/v1 -Model smoke-model *>&1 | Out-String
+          Write-Host $out
+          if ($out -notmatch 'Saved \.env') { Write-Host 'wizard never ran'; exit 1 }
+          exit 0
